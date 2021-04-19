@@ -69,17 +69,16 @@ class Blockchain {
                 reject(errorLog);
             }
             else {
-                let height = await self.getChainHeight();
-                if (height> 0) {
-                 let previousBlock = self.chain[height - 1];
-                 block.previousBlockHash = previousBlock.hash;
-                 block.height = previousBlock.height + 1;
+                let chainHeight = self.chain.length;
+                if (chainHeight> 0) {
+                 block.previousBlockHash = self.chain[chainHeight - 1].hash;
                 }
+                block.height = chainHeight;
                 block.time = new Date().getTime().toString().slice(0, -3);
                 block.hash = SHA256(JSON.stringify(block)).toString();
                 self.chain.push(block);
-                self.height = height;
-                resolve(self);
+                self.height = self.chain.length + 1;
+                resolve(block);
             }
         });
     }
@@ -124,8 +123,8 @@ class Blockchain {
                 if (bitcoinMessage.verify(message, address, signature)===true){
                     // or should it be the structure `{'data': star}`?
                     let block = new BlockClass.Block({'star': star, 'owner': address});
-                    await self._addBlock(block);
-                    resolve(self);
+                    let addedBlock = await self._addBlock(block);
+                    resolve(addedBlock);
                 }
                 else{
                     reject("No block added because we couldn't verify the message, signature and address");
@@ -184,9 +183,8 @@ class Blockchain {
         return new Promise((resolve, reject) => {
             self.chain.forEach(async(block) => {
             let jsonBlock = await block.getBData();
-            console.log(jsonBlock);
             if (address === jsonBlock.owner){
-                stars.push(jsonBlock.star)
+                stars.push(jsonBlock)
             }
             })
             resolve(stars);
@@ -208,7 +206,7 @@ class Blockchain {
                 if (await block.validate()==false){
                     errorLog.push({   error: 'Block validation failed' })
                 }
-                if (self.height > 0 && block.previousBlockHash !== previousBlock.hash){
+                if (block.height > 0 && block.previousBlockHash !== previousBlock.hash){
                     errorLog.push({   error: 'Hash of previous block do not match' })
                 }
             })
