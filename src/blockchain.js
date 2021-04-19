@@ -64,20 +64,22 @@ class Blockchain {
     _addBlock(block) {
         let self = this;
         return new Promise(async (resolve, reject) => {
-            try{
-                if (self.chain.length > 0) {
-                 let previousBlock = self.chain[self.chain.length - 1];
+            let errorLog = await self.validateChain();
+            if(errorLog.length > 0) {
+                reject(errorLog);
+            }
+            else {
+                let height = await self.getChainHeight();
+                if (height> 0) {
+                 let previousBlock = self.chain[height - 1];
                  block.previousBlockHash = previousBlock.hash;
                  block.height = previousBlock.height + 1;
                 }
                 block.time = new Date().getTime().toString().slice(0, -3);
                 block.hash = SHA256(JSON.stringify(block)).toString();
                 self.chain.push(block);
-                self.height = self.chain.length;
+                self.height = height;
                 resolve(self);
-            }
-            catch(error){
-                reject(error);
             }
         });
     }
@@ -118,7 +120,6 @@ class Blockchain {
         return new Promise(async (resolve, reject) => {
             let timeSent = parseInt(message.split(':')[1]);
             let currentTime = parseInt(new Date().getTime().toString().slice(0, -3));
-            // before or after 5 minutes?
             if (currentTime - timeSent > 5 * 60){
                 if (bitcoinMessage.verify(message, address, signature)===true){
                     // or should it be the structure `{'data': star}`?
@@ -202,17 +203,15 @@ class Blockchain {
         let self = this;
         let errorLog = [];
         return new Promise(async (resolve, reject) => {
-            var i;
-            for (i = 0; i < self.chain.length; i++) {
-                let block = self.chain[i];
-                let previousBlock = self.chain[i-1];
+            self.chain.forEach(async(block) => {
+                let previousBlock = self.chain[block.height-1];
                 if (await block.validate()==false){
                     errorLog.push({   error: 'Block validation failed' })
                 }
-                if (block.previousBlockHash !== previousBlock.hash){
+                if (self.height > 0 && block.previousBlockHash !== previousBlock.hash){
                     errorLog.push({   error: 'Hash of previous block do not match' })
                 }
-            }
+            })
             resolve(errorLog);
         });
     }
