@@ -107,7 +107,7 @@ class Blockchain {
      * 1. Get the time from the message sent as a parameter example: `parseInt(message.split(':')[1])`
      * 2. Get the current time: `let currentTime = parseInt(new Date().getTime().toString().slice(0, -3));`
      * 3. Check if the time elapsed is less than 5 minutes
-     * 4. Veify the message with wallet address and signature: `bitcoinMessage.verify(message, address, signature)`
+     * 4. Verify the message with wallet address and signature: `bitcoinMessage.verify(message, address, signature)`
      * 5. Create the block and add it to the chain
      * 6. Resolve with the block added.
      * @param {*} address 
@@ -120,7 +120,10 @@ class Blockchain {
         return new Promise(async (resolve, reject) => {
             let timeSent = parseInt(message.split(':')[1]);
             let currentTime = parseInt(new Date().getTime().toString().slice(0, -3));
-            if (currentTime - timeSent > 5 * 60){
+            // when we call the `requestValidation` endpoint we need to call `submitStar` as soon as possible 
+            // and if it passed 5 minutes or more then we can't add the block and the `requestValidation` 
+            // endpoint needs to be called again to produce a new signature with the "verify" feature of the wallet
+            if (currentTime - timeSent < 5 * 60){
                 if (bitcoinMessage.verify(message, address, signature)===true){
                     // or should it be the structure `{'data': star}`?
                     let block = new BlockClass.Block({'star': star, 'owner': address});
@@ -132,7 +135,8 @@ class Blockchain {
                 }
             }
             else{
-                reject("No block added, because it is less than 5 minutes with the previous block");
+                reject("No block added because it has been more than 5 minutes since the request of ownership was done, \
+                        use the `requestValidation` endpoint again and produce a verified signature with the wallet");
             }
         });
     }
